@@ -1,0 +1,658 @@
+Option Explicit
+
+Private Template As Workbook
+Private Data_Raw As Workbook
+Private resultsWB As Workbook
+Private Sheet_DR As Worksheet
+Private samplecount As Integer
+Private Main As Worksheet
+Private PAL As Worksheet
+Private Temp_5nm As Worksheet
+Private Temp_XYZ_5nm As Worksheet
+Private Temp_10nm As Worksheet
+Private Temp_XYZ_10nm As Worksheet
+Private Test As Worksheet
+Private Norm_10nm_Form As Integer
+Private XYZ_10nm_Form As Integer
+Private SampleName()
+Private Sample_ColorData()  '2D array. (Sample Name, 1=L* 2=a* 3=b* 4=C* 5=h)
+Private Sample_R()         '2D array. (Sample Name, 1=(R% @ 350) 65=(R% @ 700))
+Private File_name As String
+Private Sheet_name_DR As String
+Private Path As String
+Private Form As String
+
+Sub Main_Prog()
+    Dim i, j As Integer
+    
+    
+    
+    Set Template = ActiveWorkbook
+    Set Main = Template.Worksheets("Main")
+    Set PAL = Template.Worksheets("PAL")
+    Set Temp_5nm = Template.Worksheets("Temp_5nm")
+    Set Temp_XYZ_5nm = Template.Worksheets("Temp_XYZ_5nm")
+    Set Temp_10nm = Template.Worksheets("Temp_10nm")
+    Set Temp_XYZ_10nm = Template.Worksheets("Temp_XYZ_10nm")
+    Set Test = Template.Worksheets("Test")
+    
+    Application.ScreenUpdating = False
+    
+    Call Get_File
+    Call Fill_Arrays
+    Call Fill_Temp
+    Call Create_ResultsWB
+    Call Clear_Sheets
+    
+    
+    'test
+    'For i = 1 To samplecount
+        'Test.Cells(1, i).Value = SampleName(i)
+        'For j = 1 To 5
+            'Test.Cells(1 + j, i).Value = Sample_ColorData(i, j)
+        'Next
+        'For j = 1 To 65
+            'Test.Cells(8 + j, i).Value = Sample_R(i, j)
+        'Next
+    'Next
+    'test
+    
+    
+        
+End Sub
+
+
+Sub Get_File()
+    Application.ScreenUpdating = False
+    File_name = Application.GetOpenFilename
+    Application.ScreenUpdating = False
+    If File_name = "False" Then
+        End
+    End If
+    Workbooks.Open FileName:=File_name
+    File_name = ActiveWorkbook.Name
+    Sheet_name_DR = Replace(File_name, ".txt", "")
+    Set Data_Raw = ActiveWorkbook
+    Set Sheet_DR = Data_Raw.Worksheets(Sheet_name_DR)
+    Path = ActiveWorkbook.Path
+    
+End Sub
+
+Sub Fill_Arrays()
+    Dim i, j, k As Integer
+    Dim tempo As String
+    
+    Application.ScreenUpdating = False
+    
+    samplecount = Sheet_DR.UsedRange.Columns.Count - 1
+    ReDim SampleName(1 To samplecount)
+    
+    
+    Data_Raw.Activate
+    For k = 1 To samplecount
+        tempo = Sheet_DR.Cells(1, k + 1).Value
+        SampleName(k) = tempo
+    Next
+    
+    'There are different kinds of "forms" that the DC650 can use to report data.
+    
+    'Excel 5nm/10nm XYZ
+    If Sheet_DR.Cells(7, 1).Value = "X" Then
+        ReDim Sample_ColorData(1 To samplecount, 1 To 8)
+        'Excel 5nm XYZ
+        If Sheet_DR.Cells(76, 1).Value = 700 Then
+            ReDim Sample_R(1 To samplecount, 1 To 65)
+            Form = "5nm_XYZ"
+            For i = 1 To samplecount
+                If Sheet_DR.Cells(1, 1 + i).Value = SampleName(i) Then
+                    For j = 1 To 8
+                        Sample_ColorData(i, j) = Sheet_DR.Cells(1 + j, 1 + i).Value
+                    Next
+                End If
+                If Sheet_DR.Cells(11, i + 1).Value = SampleName(i) Then
+                    For k = 1 To 65
+                        Sample_R(i, k) = Sheet_DR.Cells(11 + k, 1 + i).Value
+                    Next
+                End If
+            Next
+        'Excel 10nm XYZ
+        Else: Sheet_DR.Cells(44, 1).Value = 700
+            ReDim Sample_R(1 To samplecount, 1 To 33)
+            Form = "10nm_XYZ"
+            For i = 1 To samplecount
+                If Sheet_DR.Cells(1, 1 + i).Value = SampleName(i) Then
+                    For j = 1 To 8
+                        Sample_ColorData(i, j) = Sheet_DR.Cells(1 + j, 1 + i).Value
+                    Next
+                End If
+                If Sheet_DR.Cells(11, i + 1).Value = SampleName(i) Then
+                    For k = 1 To 33
+                        Sample_R(i, k) = Sheet_DR.Cells(11 + k, 1 + i).Value
+                    Next
+                End If
+            Next
+        End If
+    'Excel 5nm/10nm
+    Else: Sheet_DR.Cells(7, 1).Value = ""
+        ReDim Sample_ColorData(1 To samplecount, 1 To 5)
+        'Excel 5nm
+        If Sheet_DR.Cells(74, 1).Value = 700 Then
+            ReDim Sample_R(1 To samplecount, 1 To 65)
+            Form = "5nm"
+            For i = 1 To samplecount 'columns
+                If Sheet_DR.Cells(1, i + 1).Value = SampleName(i) Then
+                    For j = 1 To 5  'rows
+                        Sample_ColorData(i, j) = Sheet_DR.Cells(1 + j, 1 + i).Value
+                    Next
+                End If
+                If Sheet_DR.Cells(9, i + 1).Value = SampleName(i) Then
+                    For k = 1 To 65
+                        Sample_R(i, k) = Sheet_DR.Cells(9 + k, 1 + i).Value
+                    Next
+                End If
+            Next
+        'Excel 10nm
+        Else: Sheet_DR.Cells(42, 1).Value = 700
+            ReDim Sample_R(1 To samplecount, 1 To 33)
+            Form = "10nm"
+            For i = 1 To samplecount 'columns
+                If Sheet_DR.Cells(1, i + 1).Value = SampleName(i) Then
+                    For j = 1 To 5  'rows
+                        Sample_ColorData(i, j) = Sheet_DR.Cells(1 + j, 1 + i).Value
+                    Next
+                End If
+                If Sheet_DR.Cells(9, i + 1).Value = SampleName(i) Then
+                    For k = 1 To 33
+                        Sample_R(i, k) = Sheet_DR.Cells(9 + k, 1 + i).Value
+                    Next
+                End If
+            Next
+        End If
+    End If
+    Data_Raw.Close SaveChanges:=False
+
+End Sub
+
+Sub Fill_Temp()
+    Dim i, j, k As Integer
+    
+    Template.Activate
+    If Form = "5nm" Then
+        For i = 1 To samplecount
+            Temp_5nm.Cells(38, 1 + i).Value = SampleName(i)
+            Temp_5nm.Cells(46, 1 + i).Value = SampleName(i)
+            For j = 1 To 5
+                Temp_5nm.Cells(38 + j, 1 + i).Value = Sample_ColorData(i, j)
+            Next
+            For k = 1 To 65
+                Temp_5nm.Cells(46 + k, 1 + i).Value = Sample_R(i, k)
+            Next
+        Next
+    ElseIf Form = "10nm" Then
+        For i = 1 To samplecount
+            Temp_10nm.Cells(38, 1 + i).Value = SampleName(i)
+            Temp_10nm.Cells(46, 1 + i).Value = SampleName(i)
+            For j = 1 To 5
+                Temp_10nm.Cells(38 + j, 1 + i).Value = Sample_ColorData(i, j)
+            Next
+            For k = 1 To 33
+                Temp_10nm.Cells(46 + k, 1 + i).Value = Sample_R(i, k)
+            Next
+        Next
+    ElseIf Form = "5nm_XYZ" Then
+        For i = 1 To samplecount
+            Temp_XYZ_5nm.Cells(38, 1 + i).Value = SampleName(i)
+            Temp_XYZ_5nm.Cells(49, 1 + i).Value = SampleName(i)
+            For j = 1 To 8
+                Temp_XYZ_5nm.Cells(38 + j, 1 + i).Value = Sample_ColorData(i, j)
+            Next
+            For k = 1 To 65
+                Temp_XYZ_5nm.Cells(49 + k, 1 + i).Value = Sample_R(i, k)
+            Next
+        Next
+    Else: Form = "10nm_XYZ"
+        For i = 1 To samplecount
+            Temp_XYZ_10nm.Cells(38, 1 + i).Value = SampleName(i)
+            Temp_XYZ_10nm.Cells(49, 1 + i).Value = SampleName(i)
+            For j = 1 To 8
+                Temp_XYZ_10nm.Cells(38 + j, 1 + i).Value = Sample_ColorData(i, j)
+            Next
+            For k = 1 To 33
+                Temp_XYZ_10nm.Cells(49 + k, 1 + i).Value = Sample_R(i, k)
+            Next
+        Next
+    End If
+    
+    For i = 1 To samplecount
+        PAL.Cells(2 + i, 1).Value = SampleName(i)
+        For j = 1 To 5
+            PAL.Cells(2 + i, 1 + j).Value = Sample_ColorData(i, j)
+        Next
+    Next
+    
+        
+End Sub
+Sub Create_ResultsWB()
+    
+    
+    Dim Sheet1 As Worksheet
+    Dim Sheet2 As Worksheet
+    Dim sheet_name As String
+    Dim resultsWB_name As String
+    Dim i As Integer
+    Dim rangetocover1 As Range
+    Dim rangetocover2 As Range
+    Dim rangetocover3 As Range
+    Dim chart1 As ChartObject
+    Dim chart2 As ChartObject
+    Dim chart3 As ChartObject
+    
+    Application.ScreenUpdating = False
+    Application.DisplayAlerts = False
+    Application.CutCopyMode = False
+    
+    'Takes a file name from the User and saves a new Workbook where the data file was selected.
+    resultsWB_name = InputBox("What do you want to name your results?" & Chr(10) & Chr(10) & _
+        "This will save to the same folder as data file you selected.", "New Excel Workbook", "DC650_Results_")
+    If resultsWB_name = "" Then
+        resultsWB_name = "DC650_Results"
+    End If
+    Set resultsWB = Workbooks.Add
+    resultsWB.SaveAs FileName:=resultsWB_name
+    Set Sheet1 = resultsWB.Worksheets("Sheet1")
+    
+    Sheets.Add After:=Sheet1
+    sheet_name = ActiveSheet.Name
+    Set Sheet2 = resultsWB.Worksheets(sheet_name)
+    Template.Activate
+    PAL.Activate
+    Cells.Select
+    Selection.Copy
+    resultsWB.Activate
+    Sheet2.Cells(1, 1).PasteSpecial Paste:=xlPasteAll
+    
+    
+    Sheet1.Activate
+    Set rangetocover1 = Sheet1.Range(Cells(1, 1), Cells(20, 10))
+    Set rangetocover2 = Sheet1.Range(Cells(1, 11), Cells(24, 18))
+    Set rangetocover3 = Sheet1.Range(Cells(26, 11), Cells(47, 18))
+    
+    'Moves data from the template over to the new Results Workbook.
+    Template.Activate
+    
+    If Form = "5nm" Then
+        Temp_5nm.Activate
+        Temp_5nm.Range(Cells(34, 1), Cells(36, 1 + samplecount)).Select
+        Selection.Copy
+        resultsWB.Activate
+        Sheet1.Cells(21, 1).PasteSpecial Paste:=xlPasteValues
+        Template.Activate
+        Temp_5nm.Range(Cells(37, 1), Cells(111, 1 + samplecount)).Select
+        Selection.Copy
+        resultsWB.Activate
+        Sheet1.Cells(24, 1).PasteSpecial Paste:=xlPasteAll
+    ElseIf Form = "10nm" Then
+        Temp_10nm.Activate
+        Temp_10nm.Range(Cells(34, 1), Cells(36, 1 + samplecount)).Select
+        Selection.Copy
+        resultsWB.Activate
+        Sheet1.Cells(21, 1).PasteSpecial Paste:=xlPasteValues
+        Template.Activate
+        Temp_10nm.Range(Cells(37, 1), Cells(79, 1 + samplecount)).Select
+        Selection.Copy
+        resultsWB.Activate
+        Sheet1.Cells(24, 1).PasteSpecial Paste:=xlPasteAll
+    ElseIf Form = "5nm_XYZ" Then
+        Temp_XYZ_5nm.Activate
+        Temp_XYZ_5nm.Range(Cells(34, 1), Cells(36, 1 + samplecount)).Select
+        Selection.Copy
+        resultsWB.Activate
+        Sheet1.Cells(21, 1).PasteSpecial Paste:=xlPasteValues
+        Template.Activate
+        Temp_XYZ_5nm.Range(Cells(37, 1), Cells(114, 1 + samplecount)).Select
+        Selection.Copy
+        resultsWB.Activate
+        Sheet1.Cells(24, 1).PasteSpecial Paste:=xlPasteAll
+    Else: Form = "10nm_XYZ"
+        Temp_XYZ_10nm.Activate
+        Temp_XYZ_10nm.Range(Cells(34, 1), Cells(36, 1 + samplecount)).Select
+        Selection.Copy
+        resultsWB.Activate
+        Sheet1.Cells(21, 1).PasteSpecial Paste:=xlPasteValues
+        Template.Activate
+        Temp_XYZ_10nm.Range(Cells(37, 1), Cells(82, 1 + samplecount)).Select
+        Selection.Copy
+        resultsWB.Activate
+        Sheet1.Cells(24, 1).PasteSpecial Paste:=xlPasteAll
+    End If
+    
+    
+    
+    'Adjusts Columns Widths
+    Columns(1).ColumnWidth = 15.55
+    For i = 1 To samplecount
+        Columns(i + 1).ColumnWidth = 11
+    Next
+    
+    Sheet1.Range(Cells(21, 1), Cells(22, 1 + samplecount)).Select
+    With Selection.Font
+        .Name = "Arial"
+        .Size = 9
+    End With
+    With Selection
+        .HorizontalAlignment = xlCenter
+        .VerticalAlignment = xlBottom
+    End With
+    
+    Sheet1.Range(Cells(22, 1), Cells(22, 1 + samplecount)).Select
+    Selection.NumberFormat = "0.00"
+    
+    
+    If Form = "5nm" Then
+        Sheet1.Range(Cells(26, 2), Cells(30, 1 + samplecount)).Select
+        With Selection.Font
+            .Name = "Arial"
+            .Size = 10
+        End With
+        With Selection
+            .HorizontalAlignment = xlCenter
+            .VerticalAlignment = xlBottom
+        End With
+    ElseIf Form = "10nm" Then
+        Sheet1.Range(Cells(26, 2), Cells(30, 1 + samplecount)).Select
+        With Selection.Font
+            .Name = "Arial"
+            .Size = 10
+        End With
+        With Selection
+            .HorizontalAlignment = xlCenter
+            .VerticalAlignment = xlBottom
+        End With
+    ElseIf Form = "5nm_XYZ" Then
+        Sheet1.Range(Cells(26, 2), Cells(33, 1 + samplecount)).Select
+        With Selection.Font
+            .Name = "Arial"
+            .Size = 10
+        End With
+        With Selection
+            .HorizontalAlignment = xlCenter
+            .VerticalAlignment = xlBottom
+        End With
+    Else: Form = "10nm_XYZ"
+        Sheet1.Range(Cells(26, 2), Cells(33, 1 + samplecount)).Select
+        With Selection.Font
+            .Name = "Arial"
+            .Size = 10
+        End With
+        With Selection
+            .HorizontalAlignment = xlCenter
+            .VerticalAlignment = xlBottom
+        End With
+    End If
+    
+    If Form = "5nm" Then
+        Sheet1.Range(Cells(34, 2), Cells(111, 1 + samplecount)).Select
+        With Selection.Font
+            .Name = "Arial"
+            .Size = 10
+        End With
+        With Selection
+            .HorizontalAlignment = xlCenter
+            .VerticalAlignment = xlBottom
+        End With
+    ElseIf Form = "10nm" Then
+        Sheet1.Range(Cells(34, 2), Cells(111, 1 + samplecount)).Select
+        With Selection.Font
+            .Name = "Arial"
+            .Size = 10
+        End With
+        With Selection
+            .HorizontalAlignment = xlCenter
+            .VerticalAlignment = xlBottom
+        End With
+    ElseIf Form = "5nm_XYZ" Then
+        Sheet1.Range(Cells(37, 2), Cells(111, 1 + samplecount)).Select
+        With Selection.Font
+            .Name = "Arial"
+            .Size = 10
+        End With
+        With Selection
+            .HorizontalAlignment = xlCenter
+            .VerticalAlignment = xlBottom
+        End With
+    Else: Form = "10nm_XYZ"
+        Sheet1.Range(Cells(37, 2), Cells(111, 1 + samplecount)).Select
+        With Selection.Font
+            .Name = "Arial"
+            .Size = 10
+        End With
+        With Selection
+            .HorizontalAlignment = xlCenter
+            .VerticalAlignment = xlBottom
+        End With
+    End If
+    
+    
+    If CDbl(Application.Version) > 14# Then
+        ActiveWorkbook.Theme.ThemeColorScheme.Load ( _
+            "C:\Program Files (x86)\Microsoft Office\Root\Document Themes 16\Theme Colors\Office 2007 - 2010.xml")
+    End If
+    
+    'Reflection as a function of Wavelength Graph
+    ActiveSheet.Shapes.AddChart(xlLine).Select
+    Set chart1 = ActiveChart.Parent
+    chart1.Height = rangetocover1.Height
+    chart1.Width = rangetocover1.Width
+    chart1.Top = rangetocover1.Top
+    chart1.Left = rangetocover1.Left
+    If Form = "5nm" Then
+        ActiveChart.SetSourceData Source:=Range(Cells(34, 2), Cells(98, 1 + samplecount)), _
+            PlotBy:=xlColumns
+    ElseIf Form = "10nm" Then
+        ActiveChart.SetSourceData Source:=Range(Cells(34, 2), Cells(66, 1 + samplecount)), _
+            PlotBy:=xlColumns
+    ElseIf Form = "5nm_XYZ" Then
+        ActiveChart.SetSourceData Source:=Range(Cells(37, 2), Cells(101, 1 + samplecount)), _
+            PlotBy:=xlColumns
+    Else: Form = "10nm_XYZ"
+        ActiveChart.SetSourceData Source:=Range(Cells(37, 2), Cells(69, 1 + samplecount)), _
+            PlotBy:=xlColumns
+    End If
+    Application.CutCopyMode = False
+    ActiveChart.SetElement (msoElementChartTitleAboveChart)
+    ActiveChart.ChartTitle.Select
+    Selection.Format.TextFrame2.TextRange.Font.Size = 16
+    ActiveChart.ChartTitle.Text = "DC650-LAV D65 10degree d/8"
+    ActiveChart.SetElement (msoElementLegendRight)
+    ActiveChart.SetElement (msoElementPrimaryValueAxisTitleAdjacentToAxis)
+    ActiveChart.SetElement (msoElementPrimaryCategoryAxisTitleAdjacentToAxis)
+    With ActiveChart.Axes(xlCategory)
+        .HasTitle = True
+        .AxisTitle.Text = "Wavelength (nm)"
+    End With
+    With ActiveChart.Axes(xlValue)
+        .HasTitle = True
+        .AxisTitle.Text = "R%"
+    End With
+    For i = 1 To samplecount
+        ActiveChart.SeriesCollection(i).Name = SampleName(i)
+        If Form = "5nm" Then
+            ActiveChart.SeriesCollection(i).XValues = Sheet1.Range(Cells(34, 1), Cells(98, 1))
+        ElseIf Form = "10nm" Then
+            ActiveChart.SeriesCollection(i).XValues = Sheet1.Range(Cells(34, 1), Cells(66, 1))
+        ElseIf Form = "5nm_XYZ" Then
+            ActiveChart.SeriesCollection(i).XValues = Sheet1.Range(Cells(37, 1), Cells(101, 1))
+        Else: Form = "10nm_XYZ"
+            ActiveChart.SeriesCollection(i).XValues = Sheet1.Range(Cells(37, 1), Cells(69, 1))
+        End If
+        ActiveChart.SeriesCollection(i).Select
+        With Selection.Format.Line
+            .Visible = msoTrue
+            .Weight = 2.25
+        End With
+    Next
+    ActiveChart.Axes(xlCategory).TickMarkSpacing = 4
+    ActiveChart.Axes(xlCategory).TickLabelSpacing = 4
+    
+    
+    ' a* vs b* scatter plot
+    ActiveSheet.Shapes.AddChart(xlXYScatter).Select
+    Set chart2 = ActiveChart.Parent
+    'chart2.Height = rangetocover2.Height
+    'chart2.Width = rangetocover2.Width
+    chart2.Height = 5 * 72
+    chart2.Width = 4.25 * 72
+    chart2.Top = rangetocover2.Top
+    chart2.Left = rangetocover2.Left
+    ActiveChart.SetSourceData Source:=Range(Cells(27, 2), Cells(28, 1 + samplecount)), _
+        PlotBy:=xlRows
+    Application.CutCopyMode = False
+    ActiveChart.SetElement (msoElementChartTitleAboveChart)
+    ActiveChart.ChartTitle.Text = "a*b*"
+    ActiveChart.SetElement (msoElementLegendBottom)
+    ActiveChart.SetElement (msoElementPrimaryValueAxisTitleAdjacentToAxis)
+    ActiveChart.SetElement (msoElementPrimaryCategoryAxisTitleAdjacentToAxis)
+    For i = 1 To samplecount
+        ActiveChart.SeriesCollection.NewSeries
+        ActiveChart.SeriesCollection(i).Name = SampleName(i)
+        ActiveChart.SeriesCollection(i).XValues = Sheet1.Cells(27, 1 + i)
+        ActiveChart.SeriesCollection(i).Values = Sheet1.Cells(28, 1 + i)
+        ActiveChart.SeriesCollection(i).Select
+        With Selection
+            .MarkerStyle = 2
+            .MarkerSize = 6
+        End With
+    Next
+    ActiveChart.SeriesCollection(samplecount + 1).Delete
+    With ActiveChart.Axes(xlCategory)
+        .HasTitle = True
+        .AxisTitle.Text = "a*"
+    End With
+    With ActiveChart.Axes(xlValue)
+        .HasTitle = True
+        .AxisTitle.Text = "b*"
+    End With
+    ActiveChart.Axes(xlValue).Select
+    Selection.TickLabels.NumberFormat = "0"
+    ActiveChart.Axes(xlValue).MinimumScale = -100
+    ActiveChart.Axes(xlValue).MaximumScale = 100
+    ActiveChart.Axes(xlValue).MajorUnit = 20
+    ActiveChart.Axes(xlCategory).Select
+    Selection.TickLabels.NumberFormat = "0"
+    ActiveChart.Axes(xlCategory).MinimumScale = -100
+    ActiveChart.Axes(xlCategory).MaximumScale = 100
+    ActiveChart.Axes(xlCategory).MajorUnit = 20
+    ActiveChart.Axes(xlValue).MajorGridlines.Select
+    With Selection.Format.Line
+        .Visible = msoTrue
+        .ForeColor.ObjectThemeColor = msoThemeColorText1
+        .ForeColor.TintAndShade = 0
+        .ForeColor.Brightness = 0
+        .Transparency = 0.75
+    End With
+    ActiveChart.SetElement (msoElementPrimaryCategoryGridLinesMajor)
+    ActiveChart.Axes(xlCategory).MajorGridlines.Select
+    With Selection.Format.Line
+        .Visible = msoTrue
+        .ForeColor.ObjectThemeColor = msoThemeColorText1
+        .ForeColor.TintAndShade = 0
+        .ForeColor.Brightness = 0
+        .Transparency = 0.75
+    End With
+    
+    ' a* vs L* scatter plot
+    ActiveSheet.Shapes.AddChart(xlXYScatter).Select
+    Set chart3 = ActiveChart.Parent
+    chart3.Height = 5 * 72
+    chart3.Width = 4.25 * 72
+    chart3.Top = rangetocover3.Top
+    chart3.Left = rangetocover3.Left
+    ActiveChart.SetSourceData Source:=Range(Cells(26, 2), Cells(27, 1 + samplecount)), _
+        PlotBy:=xlRows
+    Application.CutCopyMode = False
+    ActiveChart.SetElement (msoElementChartTitleAboveChart)
+    ActiveChart.ChartTitle.Text = "a*L*"
+    ActiveChart.SetElement (msoElementLegendBottom)
+    ActiveChart.SetElement (msoElementPrimaryValueAxisTitleAdjacentToAxis)
+    ActiveChart.SetElement (msoElementPrimaryCategoryAxisTitleAdjacentToAxis)
+    For i = 1 To samplecount
+        ActiveChart.SeriesCollection.NewSeries
+        ActiveChart.SeriesCollection(i).Name = SampleName(i)
+        ActiveChart.SeriesCollection(i).XValues = Sheet1.Cells(27, 1 + i)
+        ActiveChart.SeriesCollection(i).Values = Sheet1.Cells(26, 1 + i)
+        ActiveChart.SeriesCollection(i).Select
+        With Selection
+            .MarkerStyle = 2
+            .MarkerSize = 6
+        End With
+    Next
+    ActiveChart.SeriesCollection(samplecount + 1).Delete
+    With ActiveChart.Axes(xlCategory)
+        .HasTitle = True
+        .AxisTitle.Text = "a*"
+    End With
+    With ActiveChart.Axes(xlValue)
+        .HasTitle = True
+        .AxisTitle.Text = "L*"
+    End With
+    ActiveChart.Axes(xlValue).Select
+    Selection.TickLabels.NumberFormat = "0"
+    ActiveChart.Axes(xlValue).MinimumScale = -100
+    ActiveChart.Axes(xlValue).MaximumScale = 100
+    ActiveChart.Axes(xlValue).MajorUnit = 20
+    ActiveChart.Axes(xlCategory).Select
+    Selection.TickLabels.NumberFormat = "0"
+    ActiveChart.Axes(xlCategory).MinimumScale = -100
+    ActiveChart.Axes(xlCategory).MaximumScale = 100
+    ActiveChart.Axes(xlCategory).MajorUnit = 20
+    ActiveChart.Axes(xlValue).MajorGridlines.Select
+    With Selection.Format.Line
+        .Visible = msoTrue
+        .ForeColor.ObjectThemeColor = msoThemeColorText1
+        .ForeColor.TintAndShade = 0
+        .ForeColor.Brightness = 0
+        .Transparency = 0.75
+    End With
+    ActiveChart.SetElement (msoElementPrimaryCategoryGridLinesMajor)
+    ActiveChart.Axes(xlValue).MajorGridlines.Select
+    With Selection.Format.Line
+        .Visible = msoTrue
+        .ForeColor.ObjectThemeColor = msoThemeColorText1
+        .ForeColor.TintAndShade = 0
+        .ForeColor.Brightness = 0
+        .Transparency = 0.75
+    End With
+    
+    resultsWB.SaveAs FileName:=resultsWB_name
+    
+    
+    
+    'Template.Activate
+End Sub
+Sub Clear_Sheets()
+    Template.Activate
+    'Test.Activate
+    'Cells.Select
+    'Selection.ClearContents
+    PAL.Activate
+    Range(Cells(3, 1), Cells(100, 6)).Select
+    Selection.ClearContents
+    If Form = "5nm" Then
+        Temp_5nm.Activate
+        Range(Cells(37, 2), Cells(111, 30)).Select
+        Selection.ClearContents
+    ElseIf Form = "10nm" Then
+        Temp_10nm.Activate
+        Range(Cells(37, 2), Cells(79, 30)).Select
+        Selection.ClearContents
+    ElseIf Form = "5nm_XYZ" Then
+        Temp_XYZ_5nm.Activate
+        Range(Cells(37, 2), Cells(114, 30)).Select
+        Selection.ClearContents
+    Else: Form = "10nm_XYZ"
+        Temp_XYZ_10nm.Activate
+        Range(Cells(37, 2), Cells(82, 30)).Select
+        Selection.ClearContents
+    End If
+    'Main.Activate
+End Sub
