@@ -1,0 +1,594 @@
+Option Explicit
+
+Private Template As Workbook
+Private Main As Worksheet
+Private Results As Worksheet
+Private TempSheet As Worksheet
+Private Data_List As Workbook
+Private samplecount As Integer
+Private SampleNo()
+Private D10()
+Private D50()
+Private D90()
+Private SampleName()
+Private path As String
+Private OGfile As String
+Sub MainFunc()
+'Author: Jacob Nichols 12/17/18
+'
+'
+    Dim i As Integer
+    
+    Set Template = ThisWorkbook
+    Set Main = Template.Worksheets("Main")
+    Set Results = Template.Worksheets("Results")
+    Set TempSheet = Template.Worksheets("TempSheet")
+    
+    Application.ScreenUpdating = False
+    
+    Call Get_DataList
+    Call Get_SampleNumbers
+    
+    'After collecting the data in the arrays, it gets placed into the TempSheet of the Template.
+    
+    'If samplecount < 6 Then
+        'Template.Activate
+        'TempSheet.Activate
+        'Range(Cells(26, 2), Cells(31, 2)).Copy
+        'Range(Cells(26, 2), Cells(31, 1 + samplecount)).PasteSpecial Paste:=xlPasteAll
+        'Range(Cells(19, 4), Cells(24, 4)).Copy
+        'Range(Cells(26, 4 + samplecount), Cells(26, 3 + samplecount + samplecount)).PasteSpecial Paste:=xlPasteAll
+        'Cells(18, 4).Copy
+        'Cells(25, 4 + samplecount).PasteSpecial Paste:=xlPasteAll
+        'For i = 1 To samplecount
+            'TempSheet.Cells(30, 1 + i).Value = SampleNo(i)
+            'TempSheet.Cells(26, 1 + i).Value = SampleName(i)
+            'TempSheet.Cells(27, 1 + i).Value = D10(i)
+            'TempSheet.Cells(28, 1 + i).Value = D50(i)
+            'TempSheet.Cells(29, 1 + i).Value = D90(i)
+            'TempSheet.Cells(30, samplecount + 3 + i).Value = SampleNo(i)
+            'TempSheet.Cells(26, samplecount + 3 + i).Value = SampleName(i)
+        'Next
+    'Else
+        Template.Activate
+        TempSheet.Activate
+        Range(Cells(26, 2), Cells(31, 2)).Copy
+        Range(Cells(26, 2), Cells(31, 1 + samplecount)).PasteSpecial Paste:=xlPasteAll
+        Range(Cells(19, 4), Cells(24, 4)).Copy
+        Range(Cells(26, 3 + samplecount), Cells(26, 2 + samplecount + samplecount)).PasteSpecial Paste:=xlPasteAll
+        Cells(18, 4).Copy
+        Cells(25, 3 + samplecount).PasteSpecial Paste:=xlPasteAll
+        For i = 1 To samplecount
+            TempSheet.Cells(30, 1 + i).Value = SampleNo(i)
+            TempSheet.Cells(26, 1 + i).Value = SampleName(i)
+            TempSheet.Cells(27, 1 + i).Value = D10(i)
+            TempSheet.Cells(28, 1 + i).Value = D50(i)
+            TempSheet.Cells(29, 1 + i).Value = D90(i)
+            TempSheet.Cells(30, samplecount + 2 + i).Value = SampleNo(i)
+            TempSheet.Cells(26, samplecount + 2 + i).Value = SampleName(i)
+        Next
+    'End If
+    Template.Activate
+    TempSheet.Activate
+
+    
+    Call Find_Files
+    'Call Test
+    Call Format_Results
+    Call Create_ResultsWB
+    Call Clean_Template
+    Template.Activate
+    TempSheet.Activate
+
+
+End Sub
+
+Sub Get_DataList()
+'Author: Jacob Nichols 12/17/18
+'
+'Askes user to give the location of the "DataList.csv" file
+'
+    Dim file1 As String
+    Dim file_name As String
+    
+    
+    'ChDrive "L"
+    'ChDir "L:\METROSHA"
+    file1 = Application.GetOpenFilename
+    Application.ScreenUpdating = False
+    If file1 = "False" Then
+        End
+    End If
+        Workbooks.Open filename:=file1
+        file_name = ActiveWorkbook.Name
+        Set Data_List = ActiveWorkbook
+        path = ActiveWorkbook.path
+        OGfile = file_name
+End Sub
+
+Sub Get_SampleNumbers()
+'Author: Jacob Nichols 12/17/18
+'
+'Goes through "DataList.csv" columns, finds the data, and saves it all into a set of arrays.
+'
+    Dim Data As Worksheet
+    Dim i, j As Integer
+    Dim temp1 As String
+    Dim temp2 As Variant
+    
+    Application.ScreenUpdating = False
+    
+    Data_List.Activate
+    Set Data = Data_List.Worksheets("DataList")
+    samplecount = Data.UsedRange.Rows.Count - 5
+    
+    ReDim SampleNo(1 To samplecount)
+    ReDim D10(1 To samplecount)
+    ReDim D50(1 To samplecount)
+    ReDim D90(1 To samplecount)
+    ReDim SampleName(1 To samplecount)
+    For j = 1 To Data.UsedRange.Columns.Count
+        temp1 = Data.Cells(4, j)
+        temp2 = Data.Cells(5, j)
+        If temp1 = "Record Information" Then
+            If temp2 = "No." Then
+                For i = 1 To samplecount
+                    SampleNo(i) = Data.Cells(5 + i, j).Value
+                Next
+            End If
+        End If
+        If temp1 = "Sample Information" Then
+            If temp2 = "Sample name" Then
+                For i = 1 To samplecount
+                    SampleName(i) = Data.Cells(5 + i, j).Value
+                Next
+            End If
+        End If
+        If temp1 = "CE Diameter(A)" Then
+            If temp2 = "Lower%" Then
+                For i = 1 To samplecount
+                    D10(i) = Data.Cells(5 + i, j).Value
+                Next
+            End If
+            If temp2 = 0.5 Then
+                For i = 1 To samplecount
+                    D50(i) = Data.Cells(5 + i, j).Value
+                Next
+            End If
+            If temp2 = "Upper%" Then
+                For i = 1 To samplecount
+                    D90(i) = Data.Cells(5 + i, j).Value
+                Next
+            End If
+        End If
+    Next
+    Template.Activate
+    Data_List.Close SaveChanges:=False
+    
+
+End Sub
+
+Sub Find_Files()
+'Author: Jacob Nichols 12/17/18
+'
+'
+    Dim afile As Variant
+    Dim filename As String
+    Dim i, j, k As Integer
+    Dim temp, temp2 As String
+    Dim temp_arr() As String 'index starts at 0, not 1.
+    Dim temp_arr_len As Integer
+    
+    Application.ScreenUpdating = False
+    Application.DisplayAlerts = False
+    i = 1
+    
+    afile = Dir(path & "\" & "*.csv") 'Looking through the folder that contains "DataList.csv" and the rest of the files we care about
+                                      'The "*" allows for the Sub to cycle through the folder without explicitly calling for a file name.
+    If afile <> "" Then
+        Do While afile <> ""
+            If afile = OGfile Then
+            Else:
+                Workbooks.Open filename:=path & "\" & afile
+                filename = ActiveWorkbook.Name
+                Workbooks(filename).Activate
+                
+                j = 0
+                For i = 1 To Len(filename)     'The For-Loop counts the number of underscores in the file name to find
+                    temp = Mid(filename, i, 1) 'the SampleNo
+                    If temp = "_" Then
+                        j = j + 1
+                    End If
+                Next
+                temp_arr_len = j
+                ReDim temp_arr(0 To temp_arr_len) 'Knowing the # of underscores let us ReDim an array we can use to extract the
+                temp_arr = Split(filename, "_")   'SampleNo from the last element in the array.
+                temp = temp_arr(temp_arr_len)
+                temp2 = Right(temp, 4)
+                temp = Replace(temp, temp2, "")   ' ".csv" gets cut from the last element in the array so temp == SampleNo
+                For i = 1 To samplecount
+                    If temp = CStr(SampleNo(i)) Then 'Makes sure that the csv file lines up with the SampleNo then
+                        Range("C5:C230").Copy        'pastes the data into the proper column in the Results.Template
+                        Template.Activate
+                        TempSheet.Activate
+                        If CInt(temp) = TempSheet.Cells(30, 1 + i).Value Then
+                            TempSheet.Cells(32, 1 + i).Select
+                            ActiveSheet.Paste
+                        End If
+                        Workbooks(filename).Activate
+                        Range("D5:D230").Copy
+                        Template.Activate
+                        TempSheet.Activate
+                        'If samplecount < 6 Then
+                            'If CInt(temp) = TempSheet.Cells(30, 3 + samplecount + i).Value Then
+                                'TempSheet.Cells(32, 3 + samplecount + i).Select
+                                'ActiveSheet.Paste
+                            'End If
+                        'Else
+                            If CInt(temp) = TempSheet.Cells(30, 2 + samplecount + i).Value Then
+                                TempSheet.Cells(32, 2 + samplecount + i).Select
+                                ActiveSheet.Paste
+                            End If
+                        'End If
+                        Workbooks(filename).Close SaveChanges:=False
+                        Template.Activate
+                    End If
+                Next
+            End If
+            afile = Dir
+        Loop
+    Else:
+        MsgBox ("There are no files found")
+    End If
+      
+End Sub
+Sub Format_Results()
+'Author: Jacob Nichols 12/20/18
+'
+'
+    Dim i, j As Integer
+    Dim Color() As Variant
+    
+    ReDim Color(1 To 30) 'These are the color codes that are used to match the D50 text
+                         'color to the respective trend on the graph.
+    Color(1) = -5869759
+    Color(2) = -12631384
+    Color(3) = -11885434
+    Color(4) = -7515026
+    Color(5) = -5335491
+    Color(6) = -13139494
+    Color(7) = -9089748
+    Color(8) = -14013321
+    Color(9) = -13601441
+    Color(10) = -10339507
+    Color(11) = -8623577
+    Color(12) = -16230474
+    Color(13) = -3499406
+    Color(14) = -9342003
+    Color(15) = -8730193
+    Color(16) = -4881511
+    Color(17) = -3031697
+    Color(18) = -9720839
+    Color(19) = -6527174
+    Color(20) = -13091937
+    Color(21) = -12542594
+    Color(22) = -8171674
+    Color(23) = -5861835
+    Color(24) = -16026381
+    Color(25) = -2641003
+    Color(26) = -6973735
+    Color(27) = -6564157
+    Color(28) = -3693901
+    Color(29) = -2241133
+    Color(30) = -7290630
+    
+    Application.ScreenUpdating = False
+    Application.DisplayAlerts = False
+    
+    TempSheet.Range(Cells(25, 1), Cells(257, 1 + samplecount)).Copy 'Copy of Frequency data from the TempSheet.
+    
+    Results.Activate
+    
+    Results.Cells(25, 1).PasteSpecial Paste:=xlPasteAll     'Pastes Frequency data to the Results sheet in Template.
+    
+    Results.Range(Cells(32, 2), Cells(257, 1 + samplecount)).Select
+    With Selection
+        .HorizontalAlignment = xlCenter
+        .VerticalAlignment = xlBottom
+        .WrapText = False
+        .Orientation = 0
+        .AddIndent = False
+        .IndentLevel = 0
+        .ShrinkToFit = False
+        .ReadingOrder = xlContext
+        .MergeCells = False
+    End With
+    
+    TempSheet.Activate
+    'If samplecount < 6 Then
+        'TempSheet.Range(Cells(25, 4 + samplecount), Cells(257, 3 + samplecount + samplecount)).Copy 'Copy of the Cummulative Data
+        
+        'Results.Activate
+        
+        'Results.Cells(25, 4 + samplecount).PasteSpecial Paste:=xlPasteAll 'Pastes Cummulative data to the Results sheet.
+        
+        'Results.Range(Cells(25, 4 + samplecount), Cells(25, 3 + samplecount + samplecount)).Select
+        'With Selection
+            '.HorizontalAlignment = xlCenter
+            '.VerticalAlignment = xlBottom
+            '.WrapText = False
+            '.Orientation = 0
+            '.AddIndent = False
+            '.IndentLevel = 0
+            '.ShrinkToFit = False
+            '.ReadingOrder = xlContext
+            '.MergeCells = False
+        'End With
+        'Selection.Merge
+    
+        'Results.Range(Cells(32, 4 + samplecount), Cells(257, 3 + samplecount + samplecount)).Select
+        'With Selection
+            '.HorizontalAlignment = xlCenter
+            '.VerticalAlignment = xlBottom
+            '.WrapText = False
+            '.Orientation = 0
+            '.AddIndent = False
+            '.IndentLevel = 0
+            '.ShrinkToFit = False
+            '.ReadingOrder = xlContext
+            '.MergeCells = False
+        'End With
+    
+    'Else
+        TempSheet.Range(Cells(25, 3 + samplecount), Cells(257, 2 + samplecount + samplecount)).Copy
+        
+        Results.Activate
+        
+        Results.Cells(25, 3 + samplecount).PasteSpecial Paste:=xlPasteAll
+        
+        Results.Range(Cells(25, 3 + samplecount), Cells(25, 2 + samplecount + samplecount)).Select
+        With Selection
+            .HorizontalAlignment = xlCenter
+            .VerticalAlignment = xlBottom
+            .WrapText = False
+            .Orientation = 0
+            .AddIndent = False
+            .IndentLevel = 0
+            .ShrinkToFit = False
+            .ReadingOrder = xlContext
+            .MergeCells = False
+        End With
+        Selection.Merge
+    
+        Results.Range(Cells(32, 3 + samplecount), Cells(257, 2 + samplecount + samplecount)).Select
+        With Selection
+            .HorizontalAlignment = xlCenter
+            .VerticalAlignment = xlBottom
+            .WrapText = False
+            .Orientation = 0
+            .AddIndent = False
+            .IndentLevel = 0
+            .ShrinkToFit = False
+            .ReadingOrder = xlContext
+            .MergeCells = False
+        End With
+    
+    'End If
+    Results.Range(Cells(25, 2), Cells(25, 1 + samplecount)).Select
+    With Selection
+        .HorizontalAlignment = xlCenter
+        .VerticalAlignment = xlBottom
+        .WrapText = False
+        .Orientation = 0
+        .AddIndent = False
+        .IndentLevel = 0
+        .ShrinkToFit = False
+        .ReadingOrder = xlContext
+        .MergeCells = False
+    End With
+    Selection.Merge
+    
+    Columns(1).ColumnWidth = 15.55
+    For i = 1 To samplecount
+        Columns(1 + i).ColumnWidth = 13.35
+        Columns(2 + samplecount + i).ColumnWidth = 13.35
+    Next
+    
+    For i = 1 To samplecount
+        Results.Cells(28, 1 + i).Select
+        With Selection.Font
+        .Color = Color(i)
+        .TintAndShade = 0
+        End With
+    Next
+    
+End Sub
+
+Sub Create_ResultsWB()
+'Author: Jacob Nichols 12/20/18
+'
+'
+    Dim resultsWB As Workbook
+    Dim resultsWB_name As String
+    Dim i As Integer
+    Dim rangetocover1 As Range
+    Dim rangetocover2 As Range
+    Dim chart1 As ChartObject
+    Dim chart2 As ChartObject
+       
+    Application.ScreenUpdating = False
+    Application.DisplayAlerts = False
+    Application.CutCopyMode = False
+    
+    resultsWB_name = InputBox("What do you want to name your results?" & Chr(10) & Chr(10) & "This will save to the same folder as DataList.csv", "New Excel Workbook", "SYSMEX_Results_")
+    If resultsWB_name = "" Then
+        resultsWB_name = "SYSMEX_Results"
+    End If
+    
+    Set resultsWB = Workbooks.Add
+    resultsWB.SaveAs filename:=resultsWB_name
+    Template.Activate
+    Results.Activate
+    Cells.Select
+    Selection.Copy
+    resultsWB.Activate
+    Cells.Select
+    ActiveSheet.Paste
+    
+    'If samplecount < 6 Then
+        Set rangetocover1 = ActiveSheet.Range(Cells(3, 1), Cells(24, 6))
+        Set rangetocover2 = ActiveSheet.Range(Cells(3, 8), Cells(24, 13))
+    'ElseIf samplecount < 9 Then
+        'Set rangetocover1 = ActiveSheet.Range(Cells(3, 1), Cells(24, 1 + samplecount))
+        'Set rangetocover1 = ActiveSheet.Range(Cells(3, 1), Cells(24, 6))
+        'Set rangetocover2 = ActiveSheet.Range(Cells(3, 3 + samplecount), Cells(24, 2 + samplecount + samplecount))
+    'Else
+        'Set rangetocover1 = ActiveSheet.Range(Cells(3, 1), Cells(24, 10))
+        'Set rangetocover2 = ActiveSheet.Range(Cells(3, 12), Cells(24, 21))
+        'Set rangetocover1 = ActiveSheet.Range(Cells(3, 1), Cells(24, 6))
+        'Set rangetocover2 = ActiveSheet.Range(Cells(3, 3 + samplecount), Cells(24, 2 + samplecount + samplecount))
+    
+    'End If
+    If CDbl(Application.Version) > 14# Then
+        ActiveWorkbook.Theme.ThemeColorScheme.Load ( _
+            "C:\Program Files (x86)\Microsoft Office\Root\Document Themes 16\Theme Colors\Office 2007 - 2010.xml")
+    End If
+    'ActiveSheet.Shapes.AddChart(227, xlLine).Select
+    ActiveSheet.Shapes.AddChart(xlLine).Select
+    Set chart1 = ActiveChart.Parent
+    'chart1.Height = rangetocover1.Height
+    'chart1.Width = rangetocover1.Width
+    
+    chart1.Height = 4.13 * 72
+    chart1.Width = 7.3 * 72
+    chart1.Top = rangetocover1.Top
+    chart1.Left = rangetocover1.Left
+    ActiveChart.SetSourceData Source:=Range(Cells(32, 2), Cells(257, 1 + samplecount)), _
+        PlotBy:=xlColumns
+    Application.CutCopyMode = False
+    ActiveChart.SetElement (msoElementChartTitleAboveChart)
+    ActiveChart.ChartTitle.Text = "Size Distribution (A) - Frequency" & Chr(10) & "Sysmex FPIA-3000"
+    ActiveChart.SetElement (msoElementLegendRight)
+    ActiveChart.SetElement (msoElementPrimaryValueAxisTitleAdjacentToAxis)
+    ActiveChart.SetElement (msoElementPrimaryCategoryAxisTitleAdjacentToAxis)
+    
+    
+    
+    With ActiveChart.Axes(xlCategory)
+        .HasTitle = True
+        .AxisTitle.Text = "Size (" & Chr(181) & "m)"
+    End With
+    With ActiveChart.Axes(xlValue)
+        .HasTitle = True
+        .AxisTitle.Text = "Frequency (%)"
+    End With
+    
+    For i = 1 To samplecount
+        'ActiveChart.SeriesCollection.NewSeries
+        ActiveChart.SeriesCollection(i).Name = SampleName(i)
+        ActiveChart.SeriesCollection(i).XValues = ActiveSheet.Range(Cells(32, 1), Cells(257, 1))
+        'ActiveChart.SeriesCollection(i).Values = ActiveSheet.Range(Cells(32, 1 + i), Cells(257, 1 + i))
+        ActiveChart.SeriesCollection(i).Select
+            With Selection.Format.Line
+                .Visible = msoTrue
+                .Weight = 2.25
+            End With
+    Next
+    
+    'ActiveSheet.Shapes.AddChart(227, xlLine).Select
+    ActiveSheet.Shapes.AddChart(xlLine).Select
+    Set chart2 = ActiveChart.Parent
+    'chart2.Height = rangetocover2.Height
+    'chart2.Width = rangetocover2.Width
+    chart2.Height = 4.13 * 72
+    chart2.Width = 7.3 * 72
+    chart2.Top = rangetocover2.Top
+    chart2.Left = rangetocover2.Left
+    'If samplecount < 6 Then
+        ActiveChart.SetSourceData Source:=Range(Cells(31, 2 + samplecount), Cells(257, 2 + samplecount + samplecount)), _
+            PlotBy:=xlColumns
+    'Else
+        'ActiveChart.SetSourceData Source:=Range(Cells(32, 2 + samplecount), Cells(257, 2 + samplecount + samplecount)), _
+            'PlotBy:=xlColumns
+    'End If
+    Application.CutCopyMode = False
+    ActiveChart.SetElement (msoElementChartTitleAboveChart)
+    ActiveChart.ChartTitle.Text = "Size Distribution (A) - Cumulative" & Chr(10) & "Sysmex FPIA-3000"
+    ActiveChart.SetElement (msoElementLegendRight)
+    ActiveChart.SetElement (msoElementPrimaryValueAxisTitleAdjacentToAxis)
+    ActiveChart.SetElement (msoElementPrimaryCategoryAxisTitleAdjacentToAxis)
+    
+    With ActiveChart.Axes(xlCategory)
+        .HasTitle = True
+        .AxisTitle.Text = "Size (" & Chr(181) & "m)"
+    End With
+    With ActiveChart.Axes(xlValue)
+        .HasTitle = True
+        .AxisTitle.Text = "Cumulative (%)"
+        .MaximumScale = 100
+    End With
+    
+    For i = 1 To samplecount
+        'ActiveChart.SeriesCollection.NewSeries
+        ActiveChart.SeriesCollection(i).Name = SampleName(i)
+        ActiveChart.SeriesCollection(i).XValues = ActiveSheet.Range(Cells(32, 1), Cells(257, 1))
+        'ActiveChart.SeriesCollection(i).Values = ActiveSheet.Range(Cells(32, 1 + i), Cells(257, 1 + i))
+        ActiveChart.SeriesCollection(i).Select
+            With Selection.Format.Line
+                .Visible = msoTrue
+                .Weight = 2.25
+            End With
+    Next
+    resultsWB.SaveAs filename:=resultsWB_name
+End Sub
+
+Sub Clean_Template()
+'Author: Jacob Nichols 12/20/18
+'
+'
+    Application.ScreenUpdating = False
+    Application.DisplayAlerts = False
+    
+    Template.Activate
+    Results.Activate
+    Cells.Select
+    Selection.ClearContents
+    Selection.Style = "Normal"
+    Application.CutCopyMode = False
+    Selection.UnMerge
+    TempSheet.Activate
+    TempSheet.Range(Cells(26, 2), Cells(257, 62)).Select
+    Selection.ClearContents
+    
+    TempSheet.Range("C25:CA31").Select
+    Selection.ClearContents
+    Selection.Style = "Normal"
+
+End Sub
+Sub Test()
+'Author: Jacob Nichols 12/17/18
+'
+'
+    Dim i, j, k As Integer
+    Dim leng_row, leng_col As Integer
+    Dim TempSheet2 As Worksheet
+    Template.Activate
+    Set TempSheet2 = ThisWorkbook.Worksheets("TempSheet2")
+    Results.Activate
+    leng_row = Results.UsedRange.Rows.Count - 31
+    leng_col = samplecount
+    For i = 1 To leng_col
+        For j = 1 To leng_row
+            If Results.Cells(31 + j, 1 + i).Value = TempSheet.Cells(31 + j, 1 + i).Value Then
+                TempSheet2.Cells(31 + j, 1 + i).Value = "True"
+            End If
+        Next
+    Next
+    For i = 1 To leng_col
+        For j = 1 To leng_row
+            If Results.Cells(31 + j, 12 + i).Value = TempSheet.Cells(31 + j, 12 + i).Value Then
+                TempSheet2.Cells(31 + j, 12 + i).Value = "True"
+            End If
+        Next
+    Next
+End Sub
