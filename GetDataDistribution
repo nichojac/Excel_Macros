@@ -1,0 +1,139 @@
+Private std_dev, asum, average, max_val, min_val, min_bin, max_bin, bin_size As Double
+Private values() As Double
+Private counts() As Double
+Private bin_bounds() As Double
+Private sigmas() As Double
+Private book As Workbook
+Private sheet As Worksheet
+
+Function Get_Data()
+    
+    'select a range of cells
+    'computes the average and the standard deviation of the data selected
+    'uses bin sizes of 0.5sigma from -3.75sigma to +3.75sigma
+    'ex: bin1 = [-3.75,-3.25) all values equal to -3.75 up to but not including -3.25sigma
+    'bin bounds are chosen so that they are centered on values -3.5, -3.0, -2.5 , etc.
+    'Make sure to use columns of data and not rows.
+    
+    Dim i, j, row, col, counter, num_bins As Integer
+    Dim temp As Double
+    Dim len_arange As Double
+    Dim arange As Range
+    Dim range_address As String
+    Dim cell_address() As String
+    Dim x, y As String
+    Dim row_str, col_str As String
+    
+    Set book = ActiveWorkbook
+    Set sheet = book.ActiveSheet
+    temp = 0
+    counter = 0
+    
+    'Takes the coordinates of the selected range so that the range can be evaluated.
+    
+    Set arange = Application.InputBox("Select a column of data", "Obtain Range Object", Type:=8)
+    len_arange = arange.Rows.Count
+    range_address = arange.Address(ReferenceStyle:=xlR1C1)  ' "R3C3:R52C3"
+    cell_address = Split(range_address, [":"])
+    x = Right(cell_address(0), (Len(cell_address(0)) - 1)) ' x = "3C3"
+    cell_address = Split(x, ["C"])
+    row_str = cell_address(0)   ' "3"
+    col_str = cell_address(1)   ' "3"
+    row = CInt(row_str)     ' 3 dtype=integer
+    col = CInt(col_str)     ' 3 dtype=integer
+    
+    
+    'Find the average of the data.
+    asum = 0
+    ReDim values(1 To len_arange)
+    For i = 1 To len_arange
+        values(i) = sheet.Cells(row - 1 + i, col).Value
+        asum = values(i) + asum
+    Next
+    average = asum / len_arange
+    
+    'Find the standard deviation of the data.
+    asum = 0
+    For i = 1 To len_arange
+        temp = (values(i) - average) ^ 2
+        asum = temp + asum
+    Next
+    std_dev = (asum / len_arange) ^ (1 / 2)
+    
+    'Create the bins and sigma arrays
+    'The bounds of each sigma are centered on the values generated in the sigma column.
+    bin_size = std_dev * 0.5
+    ReDim sigmas(1 To 16)
+    ReDim bin_bounds(1 To 16)
+    j = 1
+    For i = -3.75 To 3.75 Step 0.5
+        sigmas(j) = (i + i + 0.5) / 2
+        bin_bounds(j) = average + (i * std_dev)
+        'Worksheets("Sheet2").Cells(2 + j, 5).Value = bin_bounds(j)
+        j = j + 1
+    Next
+    
+    'Fills counts with 0's so there arent any empty counts() values.
+    ReDim counts(1 To 16)
+    For j = 1 To 16
+        counts(j) = 0
+    Next
+    
+    'Looks at all the values and counts the number of values placed in each bin.
+    For i = 1 To len_arange
+        temp = values(i)
+        For j = 1 To 15
+            min_bin = bin_bounds(j)
+            max_bin = bin_bounds(j + 1)
+            If temp >= min_bin And temp < max_bin Then
+                counts(j) = counts(j) + 1
+            End If
+        Next
+    Next
+
+End Function
+
+Function Print_Results()
+
+'Takes the data that was made from "Get_Data" and then prints it where you want.
+
+
+
+    Dim where As Range
+    Dim range_address As String
+    Dim cell_address() As String
+    Dim x, y As String
+    Dim row_str, col_str As String
+    
+    'Find the cell where the data will be dumped.
+    
+    Set where = Application.InputBox("Where do you want to paste data?", "Obtain Range Object", Type:=8)
+    range_address = where.Address(ReferenceStyle:=xlR1C1)  ' "R3C3:R52C3"
+    cell_address = Split(range_address, [":"])
+    x = Right(cell_address(0), (Len(cell_address(0)) - 1)) ' x = "3C3"
+    cell_address = Split(x, ["C"])
+    row_str = cell_address(0)   ' "3"
+    col_str = cell_address(1)   ' "3"
+    row = CInt(row_str)     ' 3 dtype=integer
+    col = CInt(col_str)     ' 3 dtype=integer
+    
+    'Dump the data where User specified.
+    For i = 1 To 15
+        ActiveSheet.Cells(row, col).Value = "Sigmas"
+        ActiveSheet.Cells(row, col + 1).Value = "Lower Bound"
+        ActiveSheet.Cells(row, col + 2).Value = "Counts"
+        ActiveSheet.Cells(row + i, col).Value = sigmas(i)
+        ActiveSheet.Cells(row + i, col + 1).Value = bin_bounds(i)
+        ActiveSheet.Cells(row + i, col + 2).Value = counts(i)
+        If ActiveSheet.Cells(row - 1 + i, col + 2).Value = "" Then
+            ActiveSheet.Cells(row - 1 + i, col + 2).Value = "0"
+        End If
+    Next
+    
+
+End Function
+
+Sub Get_Stdev_Distribution()
+    Call Get_Data
+    Call Print_Results
+End Sub
