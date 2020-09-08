@@ -1,0 +1,212 @@
+Option Explicit
+
+Private Template As Workbook
+Private Main As Worksheet
+Private Test As Worksheet
+Private Len_Selection As Integer
+Private Series_Counter As Integer
+Private Selection_a()
+Private Selection_b()
+Private Selection_ColorAngles()
+Private chartobj As ChartObject
+Private chart1 As Chart
+Private temp_array_a()
+Private temp_array_b()
+Private Series_Name As Variant
+Private answer As Integer
+
+Function Select_a_and_b()
+    
+    Dim myRange As Variant
+    Dim tempRange As Variant
+    Dim i As Integer
+    
+    
+    Set Template = ThisWorkbook
+    Set Main = Template.ActiveSheet
+    Application.ScreenUpdating = True
+    Application.DisplayAlerts = False
+    
+    
+    'The user selects the a* data. The data is saved into an array to be used later.
+    Set myRange = Application.InputBox(prompt:="Select the a* data.", Type:=8)
+    
+    Len_Selection = myRange.Count
+    
+    ReDim Selection_a(1 To myRange.Count)
+    
+    For i = 1 To myRange.Count:
+        Selection_a(i) = myRange(i).Value
+    Next
+    
+    'The user selects the b* data. The data is saved into an array to be used later.
+    Set myRange = Application.InputBox(prompt:="Select the b* data.", Type:=8)
+    
+    ReDim Selection_b(1 To myRange.Count)
+    
+    For i = 1 To myRange.Count:
+        Selection_b(i) = myRange(i).Value
+    Next
+    
+    'The user selects the corresponding color angles for the above selected a* b* data.
+    Set myRange = Application.InputBox(prompt:="Select the corresponding color angles for the selected data.", Type:=8)
+    
+    ReDim Selection_ColorAngles(1 To myRange.Count)
+    
+    For i = 1 To myRange.Count:
+        Selection_ColorAngles(i) = myRange(i).Value
+    Next
+    
+    Application.ScreenUpdating = False
+    
+End Function
+
+Function Plot_Color_Travel()
+    
+    Dim i As Integer
+    Dim Sample_Counter As Integer
+    
+    Series_Counter = 0
+    Sample_Counter = 0
+    
+    ActiveSheet.Shapes.AddChart2(240, xlXYScatterSmooth).Select
+    Set chart1 = ActiveChart
+    Set chartobj = chart1.Parent
+    ReDim temp_array_a(1 To 2)
+    ReDim temp_array_b(1 To 2)
+    temp_array_a(1) = 0
+    temp_array_b(1) = 0
+    
+    'There were unnecessary series being added automatically. This code prevents this issue.
+    Do Until chart1.SeriesCollection.Count = 0
+        chart1.SeriesCollection(1).Delete
+    Loop
+    
+Create_New_Series:
+    
+    Series_Name = Application.InputBox("What do you want to name this series?" & Chr(10) & Chr(10) & "Please type the name of the series. Do not select a cell.", "Series Name")
+    
+    If Series_Name = False Then
+        chartobj.Delete
+        End
+    End If
+    
+    If Sample_Counter = 0 Then
+    
+        'Plots the color travel.
+        chart1.SeriesCollection.NewSeries
+        chart1.FullSeriesCollection(1).Name = Series_Name
+        chart1.FullSeriesCollection(1).XValues = Selection_a()
+        chart1.FullSeriesCollection(1).Values = Selection_b()
+        chart1.SetElement (msoElementLegendRight)
+        chart1.FullSeriesCollection(1).Select
+        With Selection.Format.Line
+            .Visible = msoTrue
+            .ForeColor.ObjectThemeColor = 5
+            .ForeColor.TintAndShade = 0
+            .ForeColor.Brightness = 0
+            .Transparency = 0
+        End With
+        
+        'Plots each dotted line from the Color to the origin.
+        For i = 1 To Len_Selection:
+            temp_array_a(2) = Selection_a(i)
+            temp_array_b(2) = Selection_b(i)
+    
+            chart1.SeriesCollection.NewSeries
+            chart1.FullSeriesCollection(i + 1).Name = Series_Name & "_" & Selection_ColorAngles(i)
+            chart1.FullSeriesCollection(i + 1).XValues = temp_array_a()
+            chart1.FullSeriesCollection(i + 1).Values = temp_array_b()
+            
+            chart1.FullSeriesCollection(i + 1).Select
+            Selection.MarkerStyle = -4142
+            With Selection.Format.Line
+                .Visible = msoTrue
+                .ForeColor.ObjectThemeColor = 5
+                .ForeColor.TintAndShade = 0
+                .ForeColor.Brightness = 0
+                .Transparency = 0
+            End With
+            Application.CommandBars("Format Object").Visible = False
+            With Selection.Format.Line
+                .Visible = msoTrue
+                .DashStyle = msoLineSysDot
+            End With
+            
+            'deletes the dotted lines from the Legend.
+            chart1.Legend.Select
+            chart1.Legend.LegendEntries(Sample_Counter + 2).Select
+            Selection.Delete
+        
+        Next
+    
+    Else:
+        
+        'Plots the color travel of another set of data.
+        chart1.SeriesCollection.NewSeries
+        chart1.FullSeriesCollection(1 + Series_Counter).Name = Series_Name
+        chart1.FullSeriesCollection(1 + Series_Counter).XValues = Selection_a()
+        chart1.FullSeriesCollection(1 + Series_Counter).Values = Selection_b()
+        chart1.FullSeriesCollection(1 + Series_Counter).Select
+        With Selection.Format.Line
+            .Visible = msoTrue
+            .ForeColor.ObjectThemeColor = 5 + Sample_Counter
+            .ForeColor.TintAndShade = 0
+            .ForeColor.Brightness = 0
+            .Transparency = 0
+        End With
+        With Selection.Format.Fill
+            .Visible = msoTrue
+            .ForeColor.ObjectThemeColor = 5 + Sample_Counter
+        End With
+        
+        'Plots each dotted line from the Color to the origin.
+        For i = 1 To Len_Selection:
+            temp_array_a(2) = Selection_a(i)
+            temp_array_b(2) = Selection_b(i)
+    
+            chart1.SeriesCollection.NewSeries
+            chart1.FullSeriesCollection(Series_Counter + i + 1).Name = Series_Name & "_" & Selection_ColorAngles(i)
+            chart1.FullSeriesCollection(Series_Counter + i + 1).XValues = temp_array_a()
+            chart1.FullSeriesCollection(Series_Counter + i + 1).Values = temp_array_b()
+            
+            chart1.FullSeriesCollection(Series_Counter + i + 1).Select
+            Selection.MarkerStyle = -4142
+            With Selection.Format.Line
+                .Visible = msoTrue
+                .ForeColor.ObjectThemeColor = 5 + Sample_Counter
+                .ForeColor.TintAndShade = 0
+                .ForeColor.Brightness = 0
+                .Transparency = 0
+            End With
+            Application.CommandBars("Format Object").Visible = False
+            With Selection.Format.Line
+                .Visible = msoTrue
+                .DashStyle = msoLineSysDot
+            End With
+            
+            'deletes the dotted lines from the Legend.
+            chart1.Legend.Select
+            chart1.Legend.LegendEntries(Sample_Counter + 2).Select
+            Selection.Delete
+        
+        Next
+    End If
+    
+    answer = MsgBox("Would you like to plot another color travel?", vbYesNo, "Plot Another?")
+    
+    If answer = vbYes Then
+        Sample_Counter = Sample_Counter + 1
+        Series_Counter = Series_Counter + Len_Selection + 1
+        Call Select_a_and_b
+        GoTo Create_New_Series
+    End If
+
+End Function
+
+Sub Graph_Color_Travel()
+
+    Call Select_a_and_b
+    Call Plot_Color_Travel
+    
+End Sub
